@@ -14,15 +14,16 @@ Add the endpoint above to an MCP client that supports remote Streamable HTTP con
 
 ## What it provides
 
-- `list_sources` lists the curated source catalog, default category, source provenance, and automatic availability.
+- `list_sources` lists the curated source catalog, default category, source provenance, `recent_posts_status`, and whether a daily snapshot is configured. Configuration does not guarantee that the latest collection succeeded.
+- `daily_snapshot` reads a scheduled snapshot from a separate public data repository, reporting retrieval times, failures, stale results and truncation. It currently covers eight sources that may be missing or size-limited in live feeds.
 - `recent_posts` retrieves bounded batches by category (`ai_development` or `agent_flow`) or selected source IDs. For category queries, follow `next_source_offset` until it is `null`. Each batch defaults to 2 sources and is limited to 3. Errors and unavailable sources are reported.
 - Source entries are grouped by their **default source category**, not classified article by article. Each entry contains a title, date, URL, and, where provided by the source, a short excerpt. The MCP does not read full articles or invoke a model.
-- The catalog currently has 44 entries: 35 configured for automatic retrieval, 8 marked manual-only, and one known size-limited source. Availability can change. TikTok Developers is a company source, currently manual-only; the GitHub AI feed exceeds the current 1 MB limit. Feed data may omit articles or be delayed. Long feeds are truncated at 100 items per source and results indicate truncation.
+- The catalog currently has 44 entries: 35 configured for automatic retrieval, 8 marked manual-only, and one known size-limited source. Availability can change. For `recent_posts`, TikTok Developers is manual-only and the GitHub AI feed exceeds the current 1 MB limit; both are separately included in `daily_snapshot`. Feed data may omit articles or be delayed. Long feeds are truncated at 100 items per source and results indicate truncation.
 - A client may summarize or translate in a chosen language using its own capabilities. No server-side translation or language filtering is supplied.
 
 ## Privacy and operating limits
 
-The server queries fixed public sources; it does not accept arbitrary feed URLs, store per-user tracking preferences, publish posts, or send notifications. Client queries and network metadata are handled by the hosting platform and upstream services; consult their respective policies. Feed content is untrusted data and may contain errors or adversarial instructions. Read the original source before relying on a summary.
+The server queries fixed public sources and a fixed public snapshot; it does not accept arbitrary feed URLs, store per-user tracking preferences, publish posts, or send notifications. Client queries and network metadata are handled by the hosting platform and upstream services; consult their respective policies. Feed content is untrusted data and may contain errors or adversarial instructions. Read the original source before relying on a summary.
 
 The public instance uses a shared free-tier hosting account and approximate per-location rate limiting. Availability and usage limits are not guaranteed. A personal daily summary configured separately by the maintainer is not a feature of this MCP server.
 
@@ -47,8 +48,15 @@ The smoke test accesses public websites. A failure can reflect upstream access o
 
 ## Current evidence and limits
 
-On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. This is one-time evidence, not a guarantee of availability or complete coverage.
+On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. A later official MCP client check of `daily_snapshot` reached the public data and reported seven successful sources and one failure: Haystack returned HTTP 308 during collection. This is one-time evidence, not a guarantee of availability or complete coverage.
 
 ## 繁體中文
 
-這個 MCP 協助 AI 助手查詢 AI 開發與 Agent Flow 相關文章，並保留來源與原文連結。請在支援遠端 MCP 的 AI 工具中新增上面的網址，再要求助手「用繁體中文整理最近的 AI 開發文章」。原文可能無法讀取，來源清單也不保證完整；TikTok 公司部落格目前需要人工查閱。
+這個 MCP 協助 AI 助手查詢 AI 開發與 Agent Flow 相關文章，並保留來源與原文連結。請在支援遠端 MCP 的 AI 工具中新增上面的網址，再要求助手「用繁體中文整理最近的 AI 開發文章」。原文可能無法讀取，來源清單也不保證完整；TikTok 公司部落格可透過 daily_snapshot 查詢，但 recent_posts 不會即時抓取它。
+
+
+## Daily public snapshot
+
+The read-only `daily_snapshot` tool retrieves the latest snapshot from the [separate public data repository](https://github.com/quietbranch88/ai-workflow-feed-snapshots). Its collector is configured to run daily at 00:00 UTC using GitHub Actions, subject to schedule delays and failures. The eight configured sources are GitHub AI and ML, Uber Engineering, TikTok Developers, Codesai, Claude Community, Langfuse, Haystack and Jina AI. Uber uses an **unofficial third-party feed**, which may omit or delay posts; the others use public site directories. Source categories are defaults, not article-level classification.
+
+The response reports each source's last successful fetch, latest attempt, status, and whether stored entries were truncated or are stale. A failed collection can return the last successfully collected entries with an error. The reader isolates invalid or missing sources and ignores unknown sources without trusting their contents; malformed documents and unsupported schema versions fail closed. Unversioned snapshots remain compatible. The snapshot contains titles, dates, original links and possible excerpts, not full articles or AI summaries. No claim is made that every source is complete or that scheduled runs always succeed. This repository contains the collector and reader code; the data repository's reviewed workflow runs a pinned revision of that collector.

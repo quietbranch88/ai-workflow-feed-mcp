@@ -5,7 +5,7 @@ const client = new Client({name:'integration-test', version:'1.0.0'});
 await client.connect(new StreamableHTTPClientTransport(new URL('http://localhost:18787/mcp')));
 try {
   const list = await client.listTools();
-  assert.deepEqual(list.tools.map(x => x.name).sort(), ['list_sources','recent_posts']);
+  assert.deepEqual(list.tools.map(x => x.name).sort(), ['daily_snapshot','list_sources','recent_posts']);
   const sources = await client.callTool({name:'list_sources',arguments:{}});
   assert.ok(sources.content.some(c => c.type === 'text' && c.text.includes('CabLate')));
   const ids = process.argv.slice(2);

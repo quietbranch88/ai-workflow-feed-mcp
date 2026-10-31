@@ -3,11 +3,12 @@ import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 import { SOURCES, recentPosts } from "./feeds.mjs";
 import { limitPublicRequest } from "./limits.mjs";
+import { readSnapshot } from "./snapshot-read.mjs";
 
-function createServer() {
+function createServer(env) {
   const server = new McpServer({ name: "ai-workflow-feed-mcp", version: "0.1.0" });
   server.registerTool("list_sources", {
-    description: "List the source catalog with categories, provenance, and automatic availability; manual-only sources are not fetched. Threads is not included.",
+    description: "List the source catalog with categories, provenance, and automatic availability; manual-only sources are not fetched by recent_posts; some may appear separately in daily_snapshot. Threads is not included.",
     inputSchema: z.object({}).strict(),
     annotations: { readOnlyHint: true, openWorldHint: false }
   }, async () => ({ content: [{ type: "text", text: JSON.stringify(SOURCES) }] }));
@@ -18,6 +19,14 @@ function createServer() {
   }, async (args) => {
     const result = await recentPosts(args);
     return { content: [{ type: "text", text: JSON.stringify(result) }], isError: result.checked.length === 0 };
+  });
+  server.registerTool("daily_snapshot", {
+    description: "Read the latest cloud snapshot of selected public sources, including last successful fetch, failures and staleness. Metadata only, not article full text; not all manual sources are covered.",
+    inputSchema: z.object({}).strict(),
+    annotations: { readOnlyHint: true, openWorldHint: true }
+  }, async () => {
+    const result = await readSnapshot();
+    return { content: [{ type: "text", text: JSON.stringify(result) }], isError: !!result.error };
   });
   return server;
 }
@@ -34,7 +43,7 @@ export default {
     }
     const denied = await limitPublicRequest(env.PUBLIC_LIMITER);
     if (denied) return denied;
-    const handler = createMcpHandler(createServer, { allowedHostnames: [allowedHost] });
+    const handler = createMcpHandler(() => createServer(env), { allowedHostnames: [allowedHost] });
     return handler(request, env, ctx);
   }
 };
