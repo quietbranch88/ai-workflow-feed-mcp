@@ -4,6 +4,8 @@ A read-only, remote Model Context Protocol (MCP) server for discovering articles
 
 **Remote endpoint:** `https://ai-workflow-feed-mcp.zoelinebot2026.workers.dev/mcp`
 
+**MCP Registry:** [`io.github.quietbranch88/ai-workflow-feed`](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.quietbranch88%2Fai-workflow-feed/versions/latest)
+
 ## Connect
 
 Add the endpoint above to an MCP client that supports remote Streamable HTTP connections. The setup interface varies by client; the endpoint is not a normal webpage. Ask the connected assistant, for example:
