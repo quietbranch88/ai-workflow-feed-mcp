@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "replace-with-your-worker-name",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": { "ALLOWED_HOST": "replace-with-your-worker-hostname.workers.dev" },
+  "ratelimits": [{ "name": "PUBLIC_LIMITER", "namespace_id": "99103101", "simple": { "limit": 60, "period": 60 } }]
+}
