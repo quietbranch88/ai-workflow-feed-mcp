@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 import { SOURCES, recentPosts } from "./feeds.mjs";
+import { inspectRequestHeaders, readBoundedRequest, withSecurityHeaders } from "./firewall.mjs";
 import { limitPublicRequest } from "./limits.mjs";
 import { readSnapshot } from "./snapshot-read.mjs";
 
@@ -34,16 +35,32 @@ function createServer(env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (url.pathname !== "/mcp") return new Response("AI Workflow Feed MCP: connect at /mcp", { status: 404 });
+    if (url.pathname !== "/mcp") {
+      return withSecurityHeaders(new Response("AI Workflow Feed MCP: connect at /mcp", { status: 404 }));
+    }
     // Set ALLOWED_HOST to the actual worker hostname before production deployment.
     const allowedHost = env.ALLOWED_HOST ?? "localhost";
     const host = request.headers.get("host")?.split(":")[0].toLowerCase();
     if (url.hostname.toLowerCase() !== allowedHost.toLowerCase() || (host && host !== allowedHost.toLowerCase())) {
-      return new Response("Host not allowed", { status: 403 });
+      return withSecurityHeaders(new Response("Host not allowed", { status: 403 }));
     }
-    const denied = await limitPublicRequest(env.PUBLIC_LIMITER);
-    if (denied) return denied;
+
+    const headerDenied = inspectRequestHeaders(request);
+    if (headerDenied) return withSecurityHeaders(headerDenied);
+
+    const limited = await limitPublicRequest({
+      ipBinding: env.PUBLIC_IP_LIMITER,
+      globalBinding: env.PUBLIC_GLOBAL_LIMITER,
+      clientAddress: request.headers.get("cf-connecting-ip")
+    });
+    if (limited) return withSecurityHeaders(limited);
+
+    const bounded = await readBoundedRequest(request);
+    if (bounded.tooLarge) {
+      return withSecurityHeaders(new Response("Request body too large", { status: 413 }));
+    }
+
     const handler = createMcpHandler(() => createServer(env), { allowedHostnames: [allowedHost] });
-    return handler(request, env, ctx);
+    return withSecurityHeaders(await handler(bounded.request, env, ctx));
   }
 };

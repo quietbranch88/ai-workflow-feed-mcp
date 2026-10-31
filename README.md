@@ -25,7 +25,7 @@ Add the endpoint above to an MCP client that supports remote Streamable HTTP con
 
 The server queries fixed public sources and a fixed public snapshot; it does not accept arbitrary feed URLs, store per-user tracking preferences, publish posts, or send notifications. Client queries and network metadata are handled by the hosting platform and upstream services; consult their respective policies. Feed content is untrusted data and may contain errors or adversarial instructions. Read the original source before relying on a summary.
 
-The public instance uses a shared free-tier hosting account and approximate per-location rate limiting. Availability and usage limits are not guaranteed. A personal daily summary configured separately by the maintainer is not a feature of this MCP server.
+The public instance uses a shared free-tier hosting account. Its Worker request boundary allows only MCP transport methods, requires JSON POST bodies, rejects request bodies over 64 KiB, and applies security response headers. It uses approximate per-location limits of 60 requests per minute for a pseudonymized client address and 600 requests per minute for the service. Cloudflare's Worker rate-limit counters are not a strict global cost ceiling, and availability is not guaranteed. The `workers.dev` endpoint does not have a customer zone to which zone-level Cloudflare Managed WAF rules can be attached; moving to a custom domain is required before deploying those managed rules. A personal daily summary configured separately by the maintainer is not a feature of this MCP server.
 
 ## Development
 
@@ -44,7 +44,7 @@ In another terminal, run a read-only smoke test against the local worker:
 node scripts/mcp-smoke.mjs cablate simon
 ```
 
-The smoke test accesses public websites. A failure can reflect upstream access or network conditions, not necessarily an implementation defect. The included `wrangler.jsonc` contains **placeholder Worker name and hostname** for your own deployment; configure an exact hostname and a unique rate-limit namespace in your own account before deploying. See [Cloudflare's remote MCP guide](https://developers.cloudflare.com/agents/model-context-protocol/guides/remote-mcp-server/).
+The smoke test accesses public websites. A failure can reflect upstream access or network conditions, not necessarily an implementation defect. The included `wrangler.jsonc` contains **placeholder Worker name and hostname** for your own deployment; configure an exact hostname and unique rate-limit namespaces in your own account before deploying. See [Cloudflare's remote MCP guide](https://developers.cloudflare.com/agents/model-context-protocol/guides/remote-mcp-server/) and [Worker rate-limit binding documentation](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
 
 ## Current evidence and limits
 
