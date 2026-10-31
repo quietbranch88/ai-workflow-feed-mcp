@@ -3,11 +3,11 @@ const AI = 'ai_development';
 const AGENT = 'agent_flow';
 const feed = (name, website, url, category, provenance = 'official feed') => ({ name, website, feed: url, category, provenance, automatic_status: 'feed_configured' });
 const manual = (name, website, category, reason = 'No verified automatic feed; website requires manual review') => ({ name, website, category, provenance: 'manual review', automatic_status: 'manual_only', reason });
-export const SOURCES = Object.freeze({
+const catalog = {
   cablate: { ...feed('CabLate', 'https://cablate.com/articles/', 'https://cablate.com/articles/', AI, 'official article directory (structured metadata)'), format:'cablate-directory' },
   simon: feed('Simon Willison', 'https://simonwillison.net/', 'https://simonwillison.net/atom/entries/', AI),
   mitchell: feed('Mitchell Hashimoto', 'https://mitchellh.com/writing', 'https://mitchellh.com/feed.xml', AI),
-  github: { ...feed('GitHub AI and ML', 'https://github.blog/ai-and-ml/', 'https://github.blog/ai-and-ml/feed/', AI), automatic_status:'known_over_size_limit' },
+  github: { ...feed('GitHub AI and ML', 'https://github.blog/ai-and-ml/', 'https://github.blog/ai-and-ml/feed/', AI), automatic_status:'known_over_size_limit', daily_snapshot: { url:'https://github.blog/ai-and-ml/', provenance:'official article directory' } },
   huggingface: feed('Hugging Face', 'https://huggingface.co/blog', 'https://huggingface.co/blog/feed.xml', AGENT),
   anthropic: feed('Anthropic Engineering', 'https://www.anthropic.com/engineering', 'https://rss.libertas.systems/feeds/anthropic-engineering.xml', AGENT, 'unofficial third-party feed; may omit or delay entries'),
   columbia: feed('Columbia DAPLab', 'https://daplab.cs.columbia.edu/', 'https://daplab.cs.columbia.edu/feed.xml', AI),
@@ -18,7 +18,7 @@ export const SOURCES = Object.freeze({
   clearforge: { ...feed('ClearForge', 'https://clearforge.com.tw/blog/', 'https://clearforge.com.tw/blog/', AI, 'official article directory metadata; page structure may change'), format:'clearforge-directory', region:'Taiwan', region_basis:'company location; not author nationality' },
   nevyn: feed('Nevyn Bengtsson', 'https://nevyn.dev/', 'https://nevyn.dev/rss.xml', AI),
   armin: feed('Armin Ronacher', 'https://lucumr.pocoo.org/', 'https://lucumr.pocoo.org/feed.atom', AI),
-  codesai: manual('Codesai', 'https://codesai.com/posts/2026/04/agents-blindly-killing-mutants', AI, 'Official feed exceeds the 1 MB Worker size limit'),
+  codesai: { ...manual('Codesai', 'https://codesai.com/posts/2026/04/agents-blindly-killing-mutants', AI, 'Official feed exceeds the 1 MB Worker size limit'), daily_snapshot: { url:'https://codesai.com/publications/', provenance:'official article directory; format may change' } },
   playwright: feed('Playwright official DEV blog', 'https://playwright.dev/docs/test-agents', 'https://dev.to/feed/playwright', AI, 'official Playwright DEV blog; documentation changes may not appear'),
   yanchen: feed('Yanchen', 'https://yanchen.app/blog/', 'https://yanchen.app/rss.xml', AI),
   shopify: feed('Shopify Engineering', 'https://shopify.engineering/', 'https://shopify.engineering/blog.atom', AI),
@@ -33,10 +33,10 @@ export const SOURCES = Object.freeze({
   aws: feed('AWS AI Blog', 'https://aws.amazon.com/blogs/machine-learning/', 'https://aws.amazon.com/blogs/machine-learning/feed/', AGENT),
   googlecloud: feed('Google Cloud AI and ML', 'https://cloud.google.com/blog/topics/developers-practitioners/building-distributed-ai-agents', 'https://cloudblog.withgoogle.com/products/ai-machine-learning/rss/', AGENT, 'official Google Cloud AI and ML feed; broader than the reference article category'),
   temporal: feed('Temporal', 'https://temporal.io/blog/we-built-a-durable-agent-debugs-durable-agents', 'https://temporal.io/blog/feed.xml', AGENT),
-  uber: manual('Uber Engineering', 'https://www.uber.com/us/en/blog/efficient-software-factory/', AGENT, 'Candidate feed returned HTTP 406'),
-  claudecommunity: manual('Claude Community', 'https://www.claudecommunity.com/zh-TW/lab', AGENT, 'Candidate feed returned HTTP 404'),
+  uber: { ...manual('Uber Engineering', 'https://www.uber.com/us/en/blog/efficient-software-factory/', AGENT, 'Candidate feed returned HTTP 406'), daily_snapshot: { url:'https://rss.libertas.systems/feeds/uber-data-ai.xml', provenance:'unofficial third-party feed; may omit or delay entries' } },
+  claudecommunity: { ...manual('Claude Community', 'https://www.claudecommunity.com/zh-TW/lab', AGENT, 'Candidate feed returned HTTP 404'), daily_snapshot: { url:'https://www.claudecommunity.com/zh-TW/lab', provenance:'public community article directory; format may change' } },
   pydantic: feed('Pydantic', 'https://pydantic.dev/docs/ai/tools-toolsets/deferred-tools/', 'https://pydantic.dev/feed.xml', AGENT, 'official company blog; documentation changes may not appear'),
-  tiktok: { ...manual('TikTok Developers', 'https://developers.tiktok.com/blogs?from_seo_redirect=1', AI, 'Official developer blog; automatic feed not verified'), region:'International', region_basis:'TikTok company source; author locations and nationality not inferred' },
+  tiktok: { ...manual('TikTok Developers', 'https://developers.tiktok.com/blogs?from_seo_redirect=1', AI, 'Official developer blog; automatic feed not verified'), region:'International', region_basis:'TikTok company source; author locations and nationality not inferred', daily_snapshot: { url:'https://developers.tiktok.com/blogs', provenance:'official embedded directory metadata; page structure may change' } },
   alibaba: { ...feed('阿里雲技術團隊', 'https://www.cnblogs.com/alisystemsoftware/p/23377001', 'https://feed.cnblogs.com/blog/u/435351/rss/', AGENT, 'official team blog feed; topics are broad and not guaranteed to cover specific articles'), region:'China', region_basis:'company organization; not author nationality' },
   tencentcommunity: { ...manual('騰訊開發者社群', 'https://developer.cloud.tencent.com/article/2755777', AI, 'Multi-author community; automatic feed not verified'), region:'China', region_basis:'community platform location; authors are independent and location not assumed' },
   meituan: { ...feed('美團技術團隊', 'https://tech.meituan.com/', 'https://tech.meituan.com/rss.xml', AGENT, 'official engineering blog; subject coverage is broad'), region:'China', region_basis:'organization location; not author nationality' },
@@ -44,10 +44,16 @@ export const SOURCES = Object.freeze({
   ithome: { ...feed('iT 邦幫忙', 'https://ithelp.ithome.com.tw/', 'https://ithelp.ithome.com.tw/rss/articles', AI, 'Taiwan multi-author community; broad topics, not all authors are in Taiwan'), region:'Taiwan', region_basis:'platform location; not author nationality' },
   codecentric: { ...feed('codecentric', 'https://www.codecentric.de/en/knowledge-hub/blog', 'https://www.codecentric.de/rss/feed.xml', AI, 'official company feed; subject coverage is broad'), region:'Germany', region_basis:'company location; not author nationality' },
   n8n: { ...feed('n8n', 'https://blog.n8n.io/', 'https://blog.n8n.io/rss/', AGENT, 'official company feed; subject coverage is broad'), region:'Germany', region_basis:'company location; not author nationality' },
-  langfuse: { ...manual('Langfuse', 'https://langfuse.com/blog/2026-06-05-agentic-setup-for-operational-work', AI, 'Automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality' },
-  deepset: { ...manual('deepset / Haystack', 'https://docs.haystack.deepset.ai/docs/deep-research-agent', AGENT, 'Documentation source; automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality' },
-  jina: { ...manual('Jina AI', 'https://jina.ai/en-US/news/agentic-workflow-with-jina-remote-mcp-server/', AGENT, 'Automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality' },
+  langfuse: { ...manual('Langfuse', 'https://langfuse.com/blog/2026-06-05-agentic-setup-for-operational-work', AI, 'Automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality', daily_snapshot: { url:'https://langfuse.com/blog', provenance:'official article directory; format may change' } },
+  deepset: { ...manual('deepset / Haystack', 'https://docs.haystack.deepset.ai/docs/deep-research-agent', AGENT, 'Documentation source; automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality', daily_snapshot: { url:'https://haystack.deepset.ai/blog', provenance:'official article directory; format may change' } },
+  jina: { ...manual('Jina AI', 'https://jina.ai/en-US/news/agentic-workflow-with-jina-remote-mcp-server/', AGENT, 'Automatic feed not verified'), region:'Germany', region_basis:'company Berlin location; not author nationality', daily_snapshot: { url:'https://jina.ai/news/', provenance:'official article directory; format may change' } },
   qdrant: { ...feed('Qdrant', 'https://qdrant.tech/documentation/tutorials-build-essentials/agentic-rag-crewai-zoom/', 'https://qdrant.tech/articles/index.xml', AGENT, 'official company articles feed; documentation changes may not appear'), region:'Germany', region_basis:'company Berlin location; not author nationality' },
-});
+};
+export const SOURCES = Object.freeze(Object.fromEntries(Object.entries(catalog).map(([id, source]) => [id, {
+  ...source,
+  recent_posts_status: source.automatic_status,
+  snapshot_configured: Object.hasOwn(source, 'daily_snapshot')
+}])));
+export const DAILY_SOURCE_IDS = Object.freeze(Object.keys(catalog).filter(id => Object.hasOwn(catalog[id], 'daily_snapshot')));
 export const LEGACY_SOURCE_IDS = ['cablate','simon','mitchell','github','huggingface','anthropic'];
 export const CATEGORIES = [AI, AGENT];

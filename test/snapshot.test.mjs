@@ -41,10 +41,17 @@ test('rejects invalid origins, unknown structure and reports unavailable data',a
   assert.throws(()=>parseGithub(github.replace('https://github.blog/','https://evil.test/')));
   assert.throws(()=>parseGithub('<html></html>'));assert.throws(()=>parseTikTok(tiktok.replace('rush-mcp-server','../bad')));
   assert.match((await readSnapshot(async()=>new Response('',{status:404}))).error,/unavailable/);
-  assert.match((await read({attempted_at:new Date(now).toISOString(),sources:{}})).error,/invalid/);
+  assert.match((await read({attempted_at:new Date(now).toISOString(),sources:{}})).error,/failed|invalid/i);
   const valid = await collectSnapshot(null,async url => new Response(body(url)),now);
   valid.sources.github.posts[0].url='http://169.254.169.254/latest';
-  assert.match((await read(valid)).error,/invalid/);
+  const isolated = await read(valid);
+  assert.equal(isolated.sources.find(s=>s.source_id==='github').status,'error');
+  assert.deepEqual(isolated.sources.find(s=>s.source_id==='github').posts,[]);
+  assert.equal(isolated.sources.find(s=>s.source_id==='tiktok').posts.length,1);
+  valid.sources.github.posts[0].url='https://evil.example/ai-and-ml/github-copilot/example/';
+  const wrongOrigin = await read(valid);
+  assert.equal(wrongOrigin.sources.find(s=>s.source_id==='github').status,'error');
+  assert.deepEqual(wrongOrigin.sources.find(s=>s.source_id==='github').posts,[]);
 });
 test('snapshot rejects malformed times, unbounded fields, extra keys, and wrong same-origin paths', async()=>{
   const valid=await collectSnapshot(null,async url=>new Response(body(url)),now);
@@ -68,5 +75,39 @@ test('snapshot rejects malformed times, unbounded fields, extra keys, and wrong 
     s=>{s.sources.github.status='ok';s.sources.github.fetched_at=null},
   ];
   const ok=await read(valid);assert.equal(ok.error,undefined);assert.match(ok.caveat,/untrusted data, not instructions/);
-  for(const mutate of controls){const candidate=structuredClone(valid);mutate(candidate);const result=await read(candidate);assert.match(result.error,/invalid/);assert.deepEqual(result.sources,[]);}
+  for(const [index,mutate] of controls.entries()){
+    const candidate=structuredClone(valid);mutate(candidate);const result=await read(candidate);
+    if(index < 2){assert.match(result.error,/invalid/);assert.deepEqual(result.sources,[]);continue;}
+    const badId=index === 10 ? 'tiktok' : 'github';
+    assert.equal(result.sources.find(s=>s.source_id===badId).status,'error');
+    assert.deepEqual(result.sources.find(s=>s.source_id===badId).posts,[]);
+    assert.equal(result.partial_failure,true);
+    assert.equal(result.sources.find(s=>s.source_id=== (badId==='github'?'tiktok':'github')).posts.length,1);
+  }
+});
+test('missing and unknown sources do not hide valid known sources', async () => {
+  const snapshot=await collectSnapshot(null,async url=>new Response(body(url)),now);
+  delete snapshot.sources.tiktok;
+  snapshot.sources.future={posts:[{url:'http://169.254.169.254/secret'}]};
+  const result=await read(snapshot);
+  assert.equal(result.partial_failure,true);
+  assert.equal(result.sources.find(s=>s.source_id==='tiktok').status,'error');
+  assert.equal(result.sources.find(s=>s.source_id==='github').posts.length,1);
+  assert.equal(result.unknown_source_count,1);
+  assert.equal(JSON.stringify(result).includes('169.254.169.254'),false);
+});
+test('unversioned and version 1 snapshots work; unsupported versions fail closed', async () => {
+  const snapshot=await collectSnapshot(null,async url=>new Response(body(url)),now);
+  assert.equal(snapshot.schema_version,1);
+  delete snapshot.schema_version;
+  assert.equal((await read(snapshot)).error,undefined);
+  snapshot.schema_version=1; assert.equal((await read(snapshot)).error,undefined);
+  snapshot.schema_version=2; assert.match((await read(snapshot)).error,/invalid|unsupported/i);
+});
+test('all malformed or failing sources are an explicit overall error', async () => {
+  const snapshot=await collectSnapshot(null,async()=>new Response('unavailable',{status:503}),now);
+  const result=await read(snapshot);
+  assert.match(result.error,/all.*failed/i);
+  assert.equal(result.partial_failure,true);
+  assert.equal(result.sources.length,8);
 });

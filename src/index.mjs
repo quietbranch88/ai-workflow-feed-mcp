@@ -3,7 +3,7 @@ import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 import { SOURCES, recentPosts } from "./feeds.mjs";
 import { limitPublicRequest } from "./limits.mjs";
-import { readSnapshot } from "./snapshot.mjs";
+import { readSnapshot } from "./snapshot-read.mjs";
 
 function createServer(env) {
   const server = new McpServer({ name: "ai-workflow-feed-mcp", version: "0.1.0" });
