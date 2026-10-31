@@ -34,6 +34,13 @@ function createServer(env) {
 
 export default {
   async fetch(request, env, ctx) {
+    const limited = await limitPublicRequest({
+      ipBinding: env.PUBLIC_IP_LIMITER,
+      globalBinding: env.PUBLIC_GLOBAL_LIMITER,
+      clientAddress: request.headers.get("cf-connecting-ip")
+    });
+    if (limited) return withSecurityHeaders(limited);
+
     const url = new URL(request.url);
     if (url.pathname !== "/mcp") {
       return withSecurityHeaders(new Response("AI Workflow Feed MCP: connect at /mcp", { status: 404 }));
@@ -47,13 +54,6 @@ export default {
 
     const headerDenied = inspectRequestHeaders(request);
     if (headerDenied) return withSecurityHeaders(headerDenied);
-
-    const limited = await limitPublicRequest({
-      ipBinding: env.PUBLIC_IP_LIMITER,
-      globalBinding: env.PUBLIC_GLOBAL_LIMITER,
-      clientAddress: request.headers.get("cf-connecting-ip")
-    });
-    if (limited) return withSecurityHeaders(limited);
 
     const bounded = await readBoundedRequest(request);
     if (bounded.tooLarge) {

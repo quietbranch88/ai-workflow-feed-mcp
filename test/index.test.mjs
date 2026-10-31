@@ -40,3 +40,47 @@ test("bounded request reaches the MCP handler and keeps security headers", async
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
 });
+
+test("all public request paths pass through both limiter bindings before policy responses", async () => {
+  const calls = [];
+  const trackedEnv = {
+    ALLOWED_HOST: host,
+    PUBLIC_IP_LIMITER: { limit: async () => { calls.push("ip"); return { success: true }; } },
+    PUBLIC_GLOBAL_LIMITER: { limit: async () => { calls.push("global"); return { success: true }; } }
+  };
+  const cases = [
+    [new Request(`https://${host}/not-mcp`), 404],
+    [new Request(`https://wrong.example/mcp`, { headers: { host: "wrong.example" } }), 403],
+    [new Request(`https://${host}/mcp`, { method: "PATCH" }), 405],
+    [new Request(`https://${host}/mcp`, {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "{}"
+    }), 415],
+    [new Request(`https://${host}/mcp`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(64 * 1024 + 1)
+      },
+      body: "{}"
+    }), 413]
+  ];
+
+  for (const [request, expectedStatus] of cases) {
+    const response = await worker.fetch(request, trackedEnv, {});
+    assert.equal(response.status, expectedStatus);
+  }
+
+  assert.deepEqual(calls, cases.flatMap(() => ["ip", "global"]));
+});
+
+test("limiter failure takes precedence over an early policy response", async () => {
+  const response = await worker.fetch(new Request(`https://${host}/not-mcp`), {
+    ALLOWED_HOST: host,
+    PUBLIC_IP_LIMITER: null,
+    PUBLIC_GLOBAL_LIMITER: binding
+  }, {});
+
+  assert.equal(response.status, 503);
+});

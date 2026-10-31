@@ -19,13 +19,22 @@ test('gate applies per-client and service-wide rate limits without using a raw a
 
 test('gate returns explicit limited and unavailable responses', async () => {
   const pass = { limit: async () => ({success:true}) };
+  let globalCalls = 0;
   const no = await limitPublicRequest({
     ipBinding: { limit: async () => ({success:false}) },
-    globalBinding: pass,
+    globalBinding: { limit: async () => { globalCalls += 1; return {success:true}; } },
     clientAddress: '203.0.113.9'
   });
   assert.equal(no.status, 429);
   assert.equal(no.headers.get('Retry-After'), '60');
+  assert.equal(globalCalls, 1);
+
+  const deniedAndUnavailable = await limitPublicRequest({
+    ipBinding: { limit: async () => ({success:false}) },
+    globalBinding: { limit: async () => { throw new Error('offline'); } },
+    clientAddress: '203.0.113.9'
+  });
+  assert.equal(deniedAndUnavailable.status, 503);
 
   const globalNo = await limitPublicRequest({
     ipBinding: pass,

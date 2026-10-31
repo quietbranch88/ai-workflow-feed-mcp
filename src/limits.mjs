@@ -16,15 +16,17 @@ export async function limitPublicRequest({ ipBinding, globalBinding, clientAddre
   }
   try {
     const clientKey = await anonymizeClientAddress(clientAddress);
-    const perClient = await ipBinding.limit({ key: clientKey });
-    if (!perClient.success) {
+    const [perClient, serviceWide] = await Promise.allSettled([
+      Promise.resolve().then(() => ipBinding.limit({ key: clientKey })),
+      Promise.resolve().then(() => globalBinding.limit({ key: "all-public-requests" }))
+    ]);
+    if (perClient.status === "rejected" || serviceWide.status === "rejected") {
+      return new Response("Rate limit binding unavailable", { status: 503 });
+    }
+    if (!perClient.value.success || !serviceWide.value.success) {
       return new Response("Temporarily rate limited", { status: 429, headers: { "Retry-After": "60" } });
     }
-
-    const serviceWide = await globalBinding.limit({ key: "all-public-requests" });
-    return serviceWide.success
-      ? null
-      : new Response("Temporarily rate limited", { status: 429, headers: { "Retry-After": "60" } });
+    return null;
   } catch {
     return new Response("Rate limit binding unavailable", { status: 503 });
   }
