@@ -6,6 +6,34 @@ A read-only, remote Model Context Protocol (MCP) server for discovering articles
 
 **MCP Registry:** [`io.github.quietbranch88/ai-workflow-feed`](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.quietbranch88%2Fai-workflow-feed/versions/latest)
 
+## Production overview
+
+| Surface | Current public instance |
+| --- | --- |
+| Access | Public and unauthenticated; all three tools are read-only |
+| Transport | Remote MCP over Streamable HTTP at `/mcp` |
+| Request boundary | Both rate-limit bindings run before path, host, method, media-type, and body-policy responses; POST bodies are capped at 64 KiB |
+| Rate limits | Approximate per Cloudflare location: 60 requests/minute per pseudonymized client address and 600 requests/minute for the service |
+| Managed WAF | Not attached to the `workers.dev` hostname; an owned custom domain is required for zone-level Cloudflare Managed WAF rules |
+| Verified deployment | On 2026-10-31, Git commit [`334598e`](https://github.com/quietbranch88/ai-workflow-feed-mcp/commit/334598ee3cc21e408e164b93f232e2a001abe014) was deployed as Worker version `edfacf30-1aa1-4266-a0d1-4edd17dc97a3` at 100% |
+
+```mermaid
+flowchart LR
+    Client[Public MCP clients] --> Endpoint[Cloudflare workers.dev endpoint]
+    Endpoint --> Limits[Per-client 60/min and service 600/min limits]
+    Limits --> Boundary[Path, host, method, JSON and 64 KiB request boundary]
+    Boundary --> MCP[Read-only MCP server]
+    MCP --> Sources[list_sources]
+    MCP --> Recent[recent_posts]
+    MCP --> Snapshot[daily_snapshot]
+    Sources --> Catalog[44-source catalog]
+    Recent --> Feeds[Fixed public feeds]
+    Snapshot --> Data[Public snapshot repository]
+    MCP --> Headers[Public CORS, no-store and security headers]
+```
+
+The diagram describes the application boundary, not a zone-level managed WAF. Feed titles, excerpts, metadata, and linked pages remain untrusted data; clients should verify original sources before relying on a summary.
+
 ## Connect
 
 Add the endpoint above to an MCP client that supports remote Streamable HTTP connections. The setup interface varies by client; the endpoint is not a normal webpage. Ask the connected assistant, for example:
@@ -48,7 +76,7 @@ The smoke test accesses public websites. A failure can reflect upstream access o
 
 ## Current evidence and limits
 
-On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. A later official MCP client check of `daily_snapshot` reached the public data and reported seven successful sources and one failure: Haystack returned HTTP 308 during collection. This is one-time evidence, not a guarantee of availability or complete coverage.
+On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. One later `daily_snapshot` check reported seven successful sources and a Haystack HTTP 308 collection failure. After the rate-limit coverage fix was deployed, a newer official client check reported all eight snapshot sources healthy with no partial failure. These are time-bounded observations, not guarantees of availability or complete coverage.
 
 ## 繁體中文
 
