@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectSnapshot, readSnapshot, parseGithub, parseTikTok } from '../src/snapshot.mjs';
+import { collectSnapshot, readSnapshot, parseGithub, parseTikTok, parseUberDirectory } from '../src/snapshot.mjs';
 const github = `<article class="post-card"><h3><a href="https://github.blog/ai-and-ml/github-copilot/example/">An AI example</a></h3><time datetime="2026-10-20">October 20, 2026</time></article>`;
-const uber = `<?xml version="1.0"?><rss version="2.0"><channel><title>Uber</title><item><title>Example</title><link>https://www.uber.com/en-US/blog/example/</link><pubDate>Fri, 30 Oct 2026 00:00:00 GMT</pubDate></item></channel></rss>`;
+const uber = `<div data-testid="newsroom-article-feed-card"><div><a href="https://www.uber.com/us/en/blog/example/">Example &amp; tests</a></div><div>October 30, 2026</div></div>`;
 const tiktok = `<script data-ttark="__remixContext">${encodeURIComponent(JSON.stringify({state:{loaderData:{'routes/blogs':{blogs:[{Title:'Rush MCP Server',WebUrl:'rush-mcp-server',PublishDate:1751068800}]}}}}))}</script>`;
 const now = Date.parse('2026-10-31T00:00:00Z');
-const body = url => url.includes('github.blog') ? github : url.includes('tiktok.com') ? tiktok : url.includes('libertas') ? uber : 'unknown format';
+const body = url => url.includes('github.blog') ? github : url.includes('tiktok.com') ? tiktok : url.includes('uber.com') ? uber : 'unknown format';
 const read = snapshot => readSnapshot(async () => new Response(JSON.stringify(snapshot)), now);
 test('collects the newest TikTok article even when the directory lists it last', async () => {
   const blogs = Array.from({ length: 51 }, (_, i) => ({ Title: `Article ${i}`, WebUrl: `article-${i}`, PublishDate: 1751068800 + i * 86400 }));
@@ -16,11 +16,21 @@ test('collects the newest TikTok article even when the directory lists it last',
   assert.equal(tiktok.posts[0].title, 'Article 50');
   assert.equal(tiktok.truncated, true);
 });
+test('Uber uses its official directory and rejects off-origin or changed markup', () => {
+  const posts = parseUberDirectory(uber);
+  assert.deepEqual(posts.map(({ title, url, published_at }) => ({ title, url, published_at })), [{
+    title: 'Example & tests',
+    url: 'https://www.uber.com/us/en/blog/example/',
+    published_at: '2026-10-30T00:00:00.000Z'
+  }]);
+  assert.throws(() => parseUberDirectory(uber.replace('https://www.uber.com/', 'https://evil.example/')));
+  assert.throws(() => parseUberDirectory('<html></html>'));
+});
 test('collector stores source attribution and reports unsupported source failures', async () => {
   const urls=[]; const snap=await collectSnapshot(null,async url => { urls.push(url); return new Response(body(url)); },now); const result=await read(snap);
   assert.equal(urls.length,8); assert.ok(urls.includes('https://haystack.deepset.ai/blog')); assert.equal(result.partial_failure,true);
   assert.equal(result.sources.find(s=>s.source_id==='github').posts[0].published_at,'2026-10-20');
-  assert.equal(result.sources.find(s=>s.source_id==='uber').posts[0].url,'https://www.uber.com/en-US/blog/example/');
+  assert.equal(result.sources.find(s=>s.source_id==='uber').posts[0].url,'https://www.uber.com/us/en/blog/example/');
   assert.equal(result.sources.find(s=>s.source_id==='tiktok').posts[0].url,'https://developers.tiktok.com/blog/rush-mcp-server');
 });
 test('failed source retains prior posts and staleness', async () => {
@@ -103,6 +113,17 @@ test('unversioned and version 1 snapshots work; unsupported versions fail closed
   assert.equal((await read(snapshot)).error,undefined);
   snapshot.schema_version=1; assert.equal((await read(snapshot)).error,undefined);
   snapshot.schema_version=2; assert.match((await read(snapshot)).error,/invalid|unsupported/i);
+});
+test('reader accepts the previous Uber feed metadata during reader-first rollout', async () => {
+  const snapshot=await collectSnapshot(null,async url=>new Response(body(url)),now);
+  const legacy='unofficial third-party feed; may omit or delay entries';
+  snapshot.sources.uber.provenance=legacy;
+  for(const post of snapshot.sources.uber.posts){post.provenance=legacy;post.date_source='feed';post.evidence='Untrusted feed metadata/excerpt; original article not read';}
+  const result=await read(snapshot);
+  const uberSource=result.sources.find(source=>source.source_id==='uber');
+  assert.equal(uberSource.status,'ok');
+  assert.equal(uberSource.provenance,legacy);
+  assert.equal(uberSource.posts[0].date_source,'feed');
 });
 test('all malformed or failing sources are an explicit overall error', async () => {
   const snapshot=await collectSnapshot(null,async()=>new Response('unavailable',{status:503}),now);

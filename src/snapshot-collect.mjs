@@ -1,7 +1,7 @@
-import { parseFeed, SOURCES as SOURCE_CATALOG } from './feeds.mjs';
+import { SOURCES as SOURCE_CATALOG } from './feeds.mjs';
 import { DAILY_SOURCE_IDS } from './sources.mjs';
 import { readBounded } from './snapshot-io.mjs';
-import { parseCodesaiDirectory, parseClaudeCommunityDirectory } from './directories.mjs';
+import { parseCodesaiDirectory, parseClaudeCommunityDirectory, parseUberDirectory } from './directories.mjs';
 import { parseLangfuse } from './langfuse.mjs';
 import { parseHaystack, parseJina } from './jina-haystack.mjs';
 
@@ -44,8 +44,6 @@ export function parseTikTok(html) {
   return posts;
 }
 
-function filterUber(raw) { const parsed = parseFeed(raw, 'uber'); const items = parsed.filter(p => { try { return new URL(p.url).hostname === 'www.uber.com'; } catch { return false; } }); items.source_items_truncated = parsed.source_items_truncated; return items; }
-
 export async function collectSnapshot(previous, fetcher = fetch, now = Date.now()) {
   const items = {};
   for (const source of SOURCES) {
@@ -54,7 +52,7 @@ export async function collectSnapshot(previous, fetcher = fetch, now = Date.now(
       const response = await fetcher(source.url, { redirect: 'manual', signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'AI-Workflow-Feed-MCP/0.1' } });
       if (!response.ok) throw new Error(`Upstream HTTP ${response.status}`);
       const raw = await readBounded(response, source.id === 'tiktok' ? 2_000_000 : MAX_BYTES);
-      const entries = source.id === 'github' ? parseGithub(raw) : source.id === 'tiktok' ? parseTikTok(raw) : source.id === 'codesai' ? parseCodesaiDirectory(raw) : source.id === 'claudecommunity' ? parseClaudeCommunityDirectory(raw) : source.id === 'langfuse' ? parseLangfuse(raw) : source.id === 'deepset' ? parseHaystack(raw) : source.id === 'jina' ? parseJina(raw) : filterUber(raw);
+      const entries = source.id === 'github' ? parseGithub(raw) : source.id === 'tiktok' ? parseTikTok(raw) : source.id === 'codesai' ? parseCodesaiDirectory(raw) : source.id === 'claudecommunity' ? parseClaudeCommunityDirectory(raw) : source.id === 'langfuse' ? parseLangfuse(raw) : source.id === 'deepset' ? parseHaystack(raw) : source.id === 'jina' ? parseJina(raw) : parseUberDirectory(raw);
       if (!entries.length) throw new Error('Source has no parseable article entries');
       const truncated = !!entries.source_items_truncated || entries.length > MAX_POSTS;
       // Directories do not always list newest items first. Sort the parsed

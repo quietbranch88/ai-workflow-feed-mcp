@@ -18,8 +18,9 @@ test('catalog distinguishes configured snapshots from live feed availability wit
   assert.equal(SOURCES.tencentcommunity.automatic_status, 'manual_only');
 });
 
-test('the Haystack snapshot uses the observed canonical URL and Uber discloses third-party attribution', () => {
+test('the Haystack snapshot and Uber official directory use observed canonical URLs', () => {
   assert.equal(DAILY_SOURCE_IDS.length, 8);
   assert.equal(SOURCES.deepset.daily_snapshot.url, 'https://haystack.deepset.ai/blog');
-  assert.match(SOURCES.uber.daily_snapshot.provenance, /unofficial third-party/);
+  assert.equal(SOURCES.uber.daily_snapshot.url, 'https://www.uber.com/us/en/blog/engineering/');
+  assert.match(SOURCES.uber.daily_snapshot.provenance, /official article directory/);
 });

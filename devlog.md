@@ -1,5 +1,13 @@
 # Development log
 
+## 2026-11-04
+
+- Deployed source commit `a49cc18` to production Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` at 100%. Cloudflare version readback preserved the production hostname, compatibility settings, and 60/600 rate-limit bindings. An official MCP client confirmed Anthropic official-directory results and compatibility with the prior Uber snapshot.
+- Generated and published public snapshot commit `da9d739` from the reviewed collector. Raw GitHub and production MCP readback showed all eight sources healthy, `partial_failure=false`, and Uber `status=ok` with 12 official-directory entries. The scheduled default-branch workflow remains unchanged; CLI publication of its candidate branch was blocked because the current OAuth token lacks GitHub's `workflow` scope.
+- Replaced the unavailable shared `rss.libertas.systems` dependency for Anthropic and Uber with bounded parsers for their official public article directories. Parsers constrain accepted origins and paths, validate displayed dates, deduplicate results, and fail explicitly when observed markup changes.
+- Preserved reader compatibility with existing Uber RSS snapshot metadata so a future rollout can deploy the compatible reader before updating the pinned collector revision. Clarified the MCP category batch maximum of 3 and continuation behavior.
+- Local verification passed 57 tests, a Wrangler dry-run build, production dependency audit, whitespace checks, and live read-only parsing of the current Anthropic and Uber directories. The source branch is published but not merged into `main`.
+
 ## 2026-10-31
 
 - Deployed merged `main` commit `334598e` to the production `ai-workflow-feed-mcp` Worker as version `edfacf30-1aa1-4266-a0d1-4edd17dc97a3` at 100%. Version readback preserved the exact production hostname and 60/600 per-location bindings. Live policy and security-header probes passed; after the per-client bucket was saturated through a persistent client, a wrong-path request returned 429 with `Retry-After: 60`, proving rejected traffic now crosses the limiter boundary. The window reset and the official MCP snapshot smoke passed with all eight sources healthy.

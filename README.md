@@ -15,7 +15,7 @@ A read-only, remote Model Context Protocol (MCP) server for discovering articles
 | Request boundary | Both rate-limit bindings run before path, host, method, media-type, and body-policy responses; POST bodies are capped at 64 KiB |
 | Rate limits | Approximate per Cloudflare location: 60 requests/minute per pseudonymized client address and 600 requests/minute for the service |
 | Managed WAF | Not attached to the `workers.dev` hostname; an owned custom domain is required for zone-level Cloudflare Managed WAF rules |
-| Verified deployment | On 2026-10-31, Git commit [`334598e`](https://github.com/quietbranch88/ai-workflow-feed-mcp/commit/334598ee3cc21e408e164b93f232e2a001abe014) was deployed as Worker version `edfacf30-1aa1-4266-a0d1-4edd17dc97a3` at 100% |
+| Verified deployment | On 2026-11-04, Git commit [`a49cc18`](https://github.com/quietbranch88/ai-workflow-feed-mcp/commit/a49cc18c2ab9fcffe2d6e5b2b1ac28b65e9c1e89) was deployed as Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` at 100% |
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ Add the endpoint above to an MCP client that supports remote Streamable HTTP con
 - `daily_snapshot` reads a scheduled snapshot from a separate public data repository, reporting retrieval times, failures, stale results and truncation. It currently covers eight sources that may be missing or size-limited in live feeds.
 - `recent_posts` retrieves bounded batches by category (`ai_development` or `agent_flow`) or selected source IDs. For category queries, follow `next_source_offset` until it is `null`. Each batch defaults to 2 sources and is limited to 3. Errors and unavailable sources are reported.
 - Source entries are grouped by their **default source category**, not classified article by article. Each entry contains a title, date, URL, and, where provided by the source, a short excerpt. The MCP does not read full articles or invoke a model.
-- The catalog currently has 44 entries: 35 configured for automatic retrieval, 8 marked manual-only, and one known size-limited source. Availability can change. For `recent_posts`, TikTok Developers is manual-only and the GitHub AI feed exceeds the current 1 MB limit; both are separately included in `daily_snapshot`. Feed data may omit articles or be delayed. Long feeds are truncated at 100 items per source and results indicate truncation.
+- The catalog currently has 44 entries: 35 configured for automatic retrieval, 8 marked manual-only, and one known size-limited source. Availability can change. For `recent_posts`, TikTok Developers is manual-only and the GitHub AI feed exceeds the current 1 MB limit; both are separately included in `daily_snapshot`. Anthropic live results and the Uber snapshot use their official public article directories and fail explicitly if those page formats change. Feed or directory data may omit articles or be delayed. Long sources are truncated at 100 items and results indicate truncation.
 - A client may summarize or translate in a chosen language using its own capabilities. No server-side translation or language filtering is supplied.
 
 ## Privacy and operating limits
@@ -78,6 +78,8 @@ The smoke test accesses public websites. A failure can reflect upstream access o
 
 On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. One later `daily_snapshot` check reported seven successful sources and a Haystack HTTP 308 collection failure. After the rate-limit coverage fix was deployed, a newer official client check reported all eight snapshot sources healthy with no partial failure. These are time-bounded observations, not guarantees of availability or complete coverage.
 
+On 2026-11-04 Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` was read back at 100% with the existing 60/600 rate-limit bindings and production hostname. An official MCP client confirmed the new batch-limit description, Anthropic official-directory catalog entry, and current Anthropic results. A manually generated public snapshot at data commit `da9d739` then returned all eight sources healthy; Uber used its official directory with 12 entries, and the production MCP returned `partial_failure=false`. The scheduled default-branch workflow had not yet been updated, so this manual snapshot does not prove recurring collection.
+
 ## 繁體中文
 
 這個 MCP 協助 AI 助手查詢 AI 開發與 Agent Flow 相關文章，並保留來源與原文連結。請在支援遠端 MCP 的 AI 工具中新增上面的網址，再要求助手「用繁體中文整理最近的 AI 開發文章」。原文可能無法讀取，來源清單也不保證完整；TikTok 公司部落格可透過 daily_snapshot 查詢，但 recent_posts 不會即時抓取它。
@@ -85,7 +87,7 @@ On 2026-10-31 the hosted Worker was tested with an official MCP client: initiali
 
 ## Daily public snapshot
 
-The read-only `daily_snapshot` tool retrieves the latest snapshot from the [separate public data repository](https://github.com/quietbranch88/ai-workflow-feed-snapshots). Its collector is configured to run daily at 00:00 UTC using GitHub Actions, subject to schedule delays and failures. The eight configured sources are GitHub AI and ML, Uber Engineering, TikTok Developers, Codesai, Claude Community, Langfuse, Haystack and Jina AI. Uber uses an **unofficial third-party feed**, which may omit or delay posts; the others use public site directories. Source categories are defaults, not article-level classification.
+The read-only `daily_snapshot` tool retrieves the latest snapshot from the [separate public data repository](https://github.com/quietbranch88/ai-workflow-feed-snapshots). Its collector is configured to run daily at 00:00 UTC using GitHub Actions, subject to schedule delays and failures. The eight configured sources are GitHub AI and ML, Uber Engineering, TikTok Developers, Codesai, Claude Community, Langfuse, Haystack and Jina AI. They use public site directories and fail explicitly if a directory format changes. Source categories are defaults, not article-level classification.
 
 The response reports each source's last successful fetch, latest attempt, status, and whether stored entries were truncated or are stale. A failed collection can return the last successfully collected entries with an error. The reader isolates invalid or missing sources and ignores unknown sources without trusting their contents; malformed documents and unsupported schema versions fail closed. Unversioned snapshots remain compatible. The snapshot contains titles, dates, original links and possible excerpts, not full articles or AI summaries. No claim is made that every source is complete or that scheduled runs always succeed. This repository contains the collector and reader code; the data repository's reviewed workflow runs a pinned revision of that collector.
 
