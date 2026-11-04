@@ -3,10 +3,10 @@
 ## 2026-11-04
 
 - Deployed source commit `a49cc18` to production Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` at 100%. Cloudflare version readback preserved the production hostname, compatibility settings, and 60/600 rate-limit bindings. An official MCP client confirmed Anthropic official-directory results and compatibility with the prior Uber snapshot.
-- Generated and published public snapshot commit `da9d739` from the reviewed collector. Raw GitHub and production MCP readback showed all eight sources healthy, `partial_failure=false`, and Uber `status=ok` with 12 official-directory entries. The scheduled default-branch workflow remains unchanged; CLI publication of its candidate branch was blocked because the current OAuth token lacks GitHub's `workflow` scope.
+- Merged the source change through PR #3 (`be90a1f`) and pinned its exact collector revision in the snapshot repository through PR #2 (`f4905dd`). Post-merge workflow dispatch `41758879739` completed successfully and published data commit `c8f5f7f`; raw GitHub and production MCP readback matched timestamp `2026-11-04T02:09:47.395Z`, showed all eight sources healthy, and returned Uber `status=ok` with 12 official-directory entries. A naturally scheduled execution has not yet been observed.
 - Replaced the unavailable shared `rss.libertas.systems` dependency for Anthropic and Uber with bounded parsers for their official public article directories. Parsers constrain accepted origins and paths, validate displayed dates, deduplicate results, and fail explicitly when observed markup changes.
 - Preserved reader compatibility with existing Uber RSS snapshot metadata so a future rollout can deploy the compatible reader before updating the pinned collector revision. Clarified the MCP category batch maximum of 3 and continuation behavior.
-- Local verification passed 57 tests, a Wrangler dry-run build, production dependency audit, whitespace checks, and live read-only parsing of the current Anthropic and Uber directories. The source branch is published but not merged into `main`.
+- Local verification passed 57 tests, a Wrangler dry-run build, production dependency audit, whitespace checks, and live read-only parsing of the current Anthropic and Uber directories. PR #3 was merged into `main` after its GitGuardian check passed.
 
 ## 2026-10-31
 
