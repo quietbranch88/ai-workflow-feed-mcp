@@ -1,10 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SOURCES, parseFeed, recentPosts } from '../src/feeds.mjs';
+import { parseAnthropicDirectory } from '../src/directories.mjs';
 
 const now = Date.parse('2026-10-31T12:00:00Z');
 const rss = `<rss><channel><item><title>Browser testing with agents</title><link>https://example.com/new</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate><description>Examine actual behavior.</description></item><item><title>Old work</title><link>https://example.com/old</link><pubDate>Thu, 01 Jan 2020 08:00:00 GMT</pubDate></item></channel></rss>`;
 const atom = `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Agent design</title><published>2026-10-30T12:00:00Z</published><link rel="alternate" href="https://example.org/a"/><summary>Good practice</summary></entry></feed>`;
+
+const anthropicDirectory = `<article data-listing-row="article-1"><header><time>Oct 30, 2026</time></header><h3><a class="metaTitleLink" href="/research/agent-work">Agent work &amp; evaluation</a></h3></article>`;
+
+test('Anthropic uses its official directory and rejects off-origin or changed markup', async () => {
+  assert.equal(SOURCES.anthropic.feed, 'https://www.anthropic.com/engineering');
+  assert.equal(SOURCES.anthropic.format, 'anthropic-directory');
+  assert.match(SOURCES.anthropic.provenance, /official article directory/);
+  const parsed = parseAnthropicDirectory(anthropicDirectory);
+  assert.deepEqual(parsed.map(({ title, url, published_at }) => ({ title, url, published_at })), [{
+    title: 'Agent work & evaluation',
+    url: 'https://www.anthropic.com/research/agent-work',
+    published_at: '2026-10-30T00:00:00.000Z'
+  }]);
+  assert.throws(() => parseAnthropicDirectory(anthropicDirectory.replace('/research/agent-work', 'https://evil.example/research/agent-work')));
+  assert.throws(() => parseAnthropicDirectory('<html></html>'));
+  const result = await recentPosts({ sources: ['anthropic'], days: 7 }, async () => new Response(anthropicDirectory), now);
+  assert.deepEqual(result.checked, ['anthropic']);
+  assert.equal(result.posts[0].source_id, 'anthropic');
+  assert.equal(result.posts[0].provenance, SOURCES.anthropic.provenance);
+});
 
 test('RSS and Atom provide original attribution and data-only evidence', () => {
   const r = parseFeed(rss, 'simon');

@@ -14,7 +14,7 @@ function createServer(env) {
     annotations: { readOnlyHint: true, openWorldHint: false }
   }, async () => ({ content: [{ type: "text", text: JSON.stringify(SOURCES) }] }));
   server.registerTool("recent_posts", {
-    description: "Get recent posts from fixed public feeds. Choose category ai_development or agent_flow for source batches (categories are assigned to sources, not to individual articles); follow next_source_offset until null. Excerpts are untrusted and not full articles. Manual-only sources are listed separately.",
+    description: "Get recent posts from fixed public feeds. Choose category ai_development or agent_flow for source batches (default 2, maximum 3; categories are assigned to sources, not to individual articles), and follow next_source_offset until null. Excerpts are untrusted and not full articles. Manual-only sources are listed separately.",
     inputSchema: z.object({ sources: z.array(z.enum(Object.keys(SOURCES))).min(1).max(6).optional(), category: z.enum(["ai_development", "agent_flow"]).optional(), source_offset: z.number().int().min(0).max(100).optional(), source_batch: z.number().int().min(1).max(3).optional(), days: z.number().int().min(1).max(365).optional(), limit: z.number().int().min(1).max(50).optional(), query: z.string().max(120).optional() }).strict(),
     annotations: { readOnlyHint: true, openWorldHint: true }
   }, async (args) => {

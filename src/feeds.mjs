@@ -1,6 +1,7 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 
 import { SOURCES, LEGACY_SOURCE_IDS, CATEGORIES } from './sources.mjs';
+import { parseAnthropicDirectory } from './directories.mjs';
 export { SOURCES } from './sources.mjs';
 
 const MAX_FEED_BYTES = 1_000_000;
@@ -136,7 +137,10 @@ async function getSource(id, fetcher, now, cutoff) {
     const response = await fetcher(SOURCES[id].feed, { headers: { "User-Agent": "AI-Workflow-Feed-MCP/0.1" }, redirect: "manual", signal: AbortSignal.timeout(id === 'meituan' ? 15000 : 8000) });
     if (!response.ok) throw new Error(`Upstream HTTP ${response.status}`);
     const data = await readLimited(response);
-    const entries = SOURCES[id].format === "cablate-directory" ? parseCablateDirectory(data) : SOURCES[id].format === "clearforge-directory" ? parseClearforgeDirectory(data) : parseFeed(data, id);
+    const entries = SOURCES[id].format === "cablate-directory" ? parseCablateDirectory(data) : SOURCES[id].format === "clearforge-directory" ? parseClearforgeDirectory(data) : SOURCES[id].format === "anthropic-directory" ? parseAnthropicDirectory(data) : parseFeed(data, id);
+    if (SOURCES[id].format === "anthropic-directory") {
+      for (const entry of entries) entry.provenance = SOURCES[id].provenance;
+    }
     const posts = entries.filter((post) => {
       const date = Date.parse(post.published_at);
       // A date with unknown timezone can range from D 00:00 UTC+14

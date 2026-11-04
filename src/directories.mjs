@@ -1,6 +1,7 @@
 // Pure parsers for observed public directory markup. The caller must bound the
 // response size and reject redirects before passing its body here.
 const MAX_ITEMS = 100;
+const MONTHS = new Map(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((month, index) => [month, String(index + 1).padStart(2, '0')]));
 
 function cleanText(value) {
   return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/&(?:amp|lt|gt|quot|apos|#39|#x27);/gi, (entity) => ({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&#39;':"'",'&#x27;':"'"})[entity.toLowerCase()] ?? entity).replace(/\s+/g, ' ').trim().slice(0, 300);
@@ -10,6 +11,13 @@ function validDay(year, month, day) {
   const date = `${year}-${month}-${day}`;
   const milliseconds = Date.parse(`${date}T00:00:00.000Z`);
   return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString().startsWith(date) ? new Date(milliseconds).toISOString() : null;
+}
+
+function englishDay(value) {
+  const match = cleanText(value).match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:uary|ruary|ch|il|e|y|ust|tember|ober|ember)?\s+(\d{1,2}),\s+(\d{4})$/i);
+  if (!match) return null;
+  const shortMonth = `${match[1][0].toUpperCase()}${match[1].slice(1, 3).toLowerCase()}`;
+  return validDay(match[3], MONTHS.get(shortMonth), match[2].padStart(2, '0'));
 }
 
 function buildPost(sourceId, source, href, title, publishedAt, pathPattern, origin) {
@@ -50,4 +58,39 @@ export function parseClaudeCommunityDirectory(html) {
   if (!posts.length) throw new Error('Claude Community directory had no parseable entries');
   posts.source_items_truncated = blocks.length > MAX_ITEMS;
   return posts;
+}
+
+export function parseAnthropicDirectory(html) {
+  if (typeof html !== 'string') throw new Error('Invalid Anthropic directory');
+  const blocks = [...html.matchAll(/<article\b[^>]*\bdata-listing-row=["'][^"']+["'][^>]*>([\s\S]*?)<\/article\s*>/gi)];
+  if (!blocks.length) throw new Error('Anthropic article directory format not recognized');
+  const posts = blocks.slice(0, MAX_ITEMS).flatMap(([, body]) => {
+    const date = englishDay(body.match(/<time\b[^>]*>([\s\S]*?)<\/time\s*>/i)?.[1]);
+    const link = body.match(/<h3\b[^>]*>[\s\S]*?<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a\s*>[\s\S]*?<\/h3\s*>/i);
+    if (!link) return [];
+    const post = buildPost('anthropic', 'Anthropic Engineering', link[1], cleanText(link[2]), date, /^\/(?:research|engineering)\/[a-z0-9][a-z0-9-]*\/?$/i, 'https://www.anthropic.com');
+    return post ? [post] : [];
+  });
+  const unique = [...new Map(posts.map(post => [post.url, post])).values()];
+  if (!unique.length) throw new Error('Anthropic directory had no parseable entries');
+  unique.source_items_truncated = blocks.length > MAX_ITEMS;
+  return unique;
+}
+
+export function parseUberDirectory(html) {
+  if (typeof html !== 'string') throw new Error('Invalid Uber directory');
+  const blocks = [...html.matchAll(/<div\b(?=[^>]*\bdata-testid=["']newsroom-article-feed-card["'])[^>]*>([\s\S]*?)(?=<div\b(?=[^>]*\bdata-testid=["']newsroom-article-feed-card["'])|<\/main\s*>|$)/gi)];
+  if (!blocks.length) throw new Error('Uber article directory format not recognized');
+  const posts = blocks.slice(0, MAX_ITEMS).flatMap(([, body]) => {
+    const link = body.match(/<a\b[^>]*\bhref=["'](https:\/\/www\.uber\.com\/us\/en\/blog\/[a-z0-9][a-z0-9-]*\/?)['"][^>]*>([\s\S]*?)<\/a\s*>/i);
+    if (!link) return [];
+    const afterLink = body.slice((link.index ?? 0) + link[0].length, (link.index ?? 0) + link[0].length + 500);
+    const rawDate = afterLink.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/i)?.[0];
+    const post = buildPost('uber', 'Uber Engineering', link[1], cleanText(link[2]), englishDay(rawDate), /^https:\/\/www\.uber\.com\/us\/en\/blog\/[a-z0-9][a-z0-9-]*\/?$/i, 'https://www.uber.com');
+    return post ? [post] : [];
+  });
+  const unique = [...new Map(posts.map(post => [post.url, post])).values()];
+  if (!unique.length) throw new Error('Uber directory had no parseable entries');
+  unique.source_items_truncated = blocks.length > MAX_ITEMS;
+  return unique;
 }
