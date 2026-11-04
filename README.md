@@ -15,7 +15,7 @@ A read-only, remote Model Context Protocol (MCP) server for discovering articles
 | Request boundary | Both rate-limit bindings run before path, host, method, media-type, and body-policy responses; POST bodies are capped at 64 KiB |
 | Rate limits | Approximate per Cloudflare location: 60 requests/minute per pseudonymized client address and 600 requests/minute for the service |
 | Managed WAF | Not attached to the `workers.dev` hostname; an owned custom domain is required for zone-level Cloudflare Managed WAF rules |
-| Verified deployment | On 2026-10-31, Git commit [`334598e`](https://github.com/quietbranch88/ai-workflow-feed-mcp/commit/334598ee3cc21e408e164b93f232e2a001abe014) was deployed as Worker version `edfacf30-1aa1-4266-a0d1-4edd17dc97a3` at 100% |
+| Verified deployment | On 2026-11-04, Git commit [`a49cc18`](https://github.com/quietbranch88/ai-workflow-feed-mcp/commit/a49cc18c2ab9fcffe2d6e5b2b1ac28b65e9c1e89) was deployed as Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` at 100% |
 
 ```mermaid
 flowchart LR
@@ -77,6 +77,8 @@ The smoke test accesses public websites. A failure can reflect upstream access o
 ## Current evidence and limits
 
 On 2026-10-31 the hosted Worker was tested with an official MCP client: initialization, tool listing, representative category batches, invalid-input handling, and real queries to iT 邦幫忙, TheAI, codecentric, n8n, Meituan, Qdrant, and Alibaba succeeded. Meituan dates are inferred from its article URLs when its feed supplies no date; they are explicitly marked as unverified and time filtering is conservative. One later `daily_snapshot` check reported seven successful sources and a Haystack HTTP 308 collection failure. After the rate-limit coverage fix was deployed, a newer official client check reported all eight snapshot sources healthy with no partial failure. These are time-bounded observations, not guarantees of availability or complete coverage.
+
+On 2026-11-04 Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` was read back at 100% with the existing 60/600 rate-limit bindings and production hostname. An official MCP client confirmed the new batch-limit description, Anthropic official-directory catalog entry, and current Anthropic results. A manually generated public snapshot at data commit `da9d739` then returned all eight sources healthy; Uber used its official directory with 12 entries, and the production MCP returned `partial_failure=false`. The scheduled default-branch workflow had not yet been updated, so this manual snapshot does not prove recurring collection.
 
 ## 繁體中文
 
