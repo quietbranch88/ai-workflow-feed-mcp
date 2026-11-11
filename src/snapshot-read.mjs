@@ -1,5 +1,6 @@
 import { SOURCES as SOURCE_CATALOG, DAILY_SOURCE_IDS } from './sources.mjs';
 import { readBounded } from './snapshot-io.mjs';
+import {JINA_PROVENANCE, JINA_DATE_SOURCE} from './jina-cms.mjs';
 
 export const SNAPSHOT_URL = 'https://raw.githubusercontent.com/quietbranch88/ai-workflow-feed-snapshots/data/snapshot.json';
 const MAX_POSTS = 50;
@@ -29,13 +30,13 @@ function validateSnapshot(snapshot) {
     const definition = SOURCE_CATALOG[id].daily_snapshot;
     const item = snapshot.sources[id];
     try {
-    const compatibleProvenance = item?.provenance === definition?.provenance || (id === 'uber' && item?.provenance === LEGACY_UBER_PROVENANCE);
+    const compatibleProvenance = (id === 'jina' && item?.provenance === JINA_PROVENANCE) || item?.provenance === definition?.provenance || (id === 'uber' && item?.provenance === LEGACY_UBER_PROVENANCE);
     if (!definition || !onlyKeys(item, ['source_id','category','fetched_at','attempted_at','status','error','provenance','truncated','posts']) || item.source_id !== id || item.category !== SOURCE_CATALOG[id].category || !compatibleProvenance || !isoTime(item.attempted_at) || item.attempted_at !== snapshot.attempted_at || !(item.fetched_at === null || isoTime(item.fetched_at)) || typeof item.truncated !== 'boolean' || !Array.isArray(item.posts) || item.posts.length > MAX_POSTS || !['ok','error'].includes(item.status)) throw new Error('Invalid source metadata');
     if (item.fetched_at && Date.parse(item.fetched_at) > Date.parse(item.attempted_at)) throw new Error('Invalid source timing');
     if (item.status === 'ok' && (!item.fetched_at || item.fetched_at !== item.attempted_at || 'error' in item)) throw new Error('Invalid successful source');
     if (item.status === 'error' && (!boundedString(item.error, 120) || !item.error || (!item.fetched_at && item.posts.length))) throw new Error('Invalid failed source');
     const posts = item.posts.map(post => {
-      const compatibleDateSource = post?.date_source === DATE_SOURCES[id] || (id === 'uber' && item.provenance === LEGACY_UBER_PROVENANCE && post?.date_source === 'feed');
+      const compatibleDateSource = (id === 'jina' && item.provenance === JINA_PROVENANCE && post?.date_source === JINA_DATE_SOURCE) || post?.date_source === DATE_SOURCES[id] || (id === 'uber' && item.provenance === LEGACY_UBER_PROVENANCE && post?.date_source === 'feed');
       if (!onlyKeys(post, ['source_id','source','title','url','published_at','date_source','excerpt','evidence','provenance','region','region_basis']) || post.source_id !== id || post.source !== SOURCE_CATALOG[id].name || post.provenance !== item.provenance || !boundedString(post.title, 300) || !post.title.trim() || !boundedString(post.url, 2048) || !dateValue(post.published_at) || !compatibleDateSource || !boundedString(post.excerpt, 500) || !['Untrusted directory metadata; original article not read','Untrusted feed metadata/excerpt; original article not read'].includes(post.evidence) || (post.region !== undefined && post.region !== null) || (post.region_basis !== undefined && post.region_basis !== null)) throw new Error('Invalid post metadata');
       let u; try { u = new URL(post.url); } catch { throw new Error('Invalid post URL'); }
       if (u.origin !== ORIGINS[id] || u.username || u.password || u.search || u.hash || !PATHS[id].test(u.pathname)) throw new Error('Invalid post URL');
