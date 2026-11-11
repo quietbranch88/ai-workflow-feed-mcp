@@ -3,10 +3,11 @@ import { DAILY_SOURCE_IDS } from './sources.mjs';
 import { readBounded } from './snapshot-io.mjs';
 import { parseCodesaiDirectory, parseClaudeCommunityDirectory, parseUberDirectory } from './directories.mjs';
 import { parseLangfuse } from './langfuse.mjs';
-import { parseHaystack, parseJina } from './jina-haystack.mjs';
+import { parseHaystack } from './jina-haystack.mjs';
+import {JINA_CMS_URL, JINA_PROVENANCE, parseJinaCMS} from './jina-cms.mjs';
 
 // Daily URLs and provenance share the catalog with the MCP reader.
-const SOURCES = DAILY_SOURCE_IDS.map(id => ({ id, ...SOURCE_CATALOG[id].daily_snapshot }));
+const SOURCES = DAILY_SOURCE_IDS.map(id => ({ id, ...SOURCE_CATALOG[id].daily_snapshot, ...(id==='jina'?{url:JINA_CMS_URL,provenance:JINA_PROVENANCE}:{}) }));
 const MAX_BYTES = 1_000_000;
 const MAX_POSTS = 50;
 
@@ -52,7 +53,7 @@ export async function collectSnapshot(previous, fetcher = fetch, now = Date.now(
       const response = await fetcher(source.url, { redirect: 'manual', signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'AI-Workflow-Feed-MCP/0.1' } });
       if (!response.ok) throw new Error(`Upstream HTTP ${response.status}`);
       const raw = await readBounded(response, source.id === 'tiktok' ? 2_000_000 : MAX_BYTES);
-      const entries = source.id === 'github' ? parseGithub(raw) : source.id === 'tiktok' ? parseTikTok(raw) : source.id === 'codesai' ? parseCodesaiDirectory(raw) : source.id === 'claudecommunity' ? parseClaudeCommunityDirectory(raw) : source.id === 'langfuse' ? parseLangfuse(raw) : source.id === 'deepset' ? parseHaystack(raw) : source.id === 'jina' ? parseJina(raw) : parseUberDirectory(raw);
+      const entries = source.id === 'github' ? parseGithub(raw) : source.id === 'tiktok' ? parseTikTok(raw) : source.id === 'codesai' ? parseCodesaiDirectory(raw) : source.id === 'claudecommunity' ? parseClaudeCommunityDirectory(raw) : source.id === 'langfuse' ? parseLangfuse(raw) : source.id === 'deepset' ? parseHaystack(raw) : source.id === 'jina' ? parseJinaCMS(raw) : parseUberDirectory(raw);
       if (!entries.length) throw new Error('Source has no parseable article entries');
       const truncated = !!entries.source_items_truncated || entries.length > MAX_POSTS;
       // Directories do not always list newest items first. Sort the parsed
@@ -62,7 +63,7 @@ export async function collectSnapshot(previous, fetcher = fetch, now = Date.now(
       items[source.id] = { source_id: source.id, category: SOURCE_CATALOG[source.id]?.category ?? null, fetched_at: attempted_at, attempted_at, status: 'ok', provenance: source.provenance, truncated, posts };
     } catch (error) {
       const old = previous?.sources?.[source.id];
-      items[source.id] = { source_id: source.id, category: SOURCE_CATALOG[source.id]?.category ?? null, fetched_at: old?.fetched_at ?? null, attempted_at, status: 'error', truncated: old?.truncated ?? false, error: error instanceof Error ? error.message.slice(0, 120) : 'Collection failed', provenance: source.provenance, posts: old?.posts ?? [] };
+      items[source.id] = { source_id: source.id, category: SOURCE_CATALOG[source.id]?.category ?? null, fetched_at: old?.fetched_at ?? null, attempted_at, status: 'error', truncated: old?.truncated ?? false, error: error instanceof Error ? error.message.slice(0, 120) : 'Collection failed', provenance: old?.provenance ?? source.provenance, posts: old?.posts ?? [] };
     }
   }
   const snapshot = { schema_version: 1, attempted_at: new Date(now).toISOString(), sources: items };
