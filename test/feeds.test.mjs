@@ -266,3 +266,13 @@ test('Meituan date-only window covers UTC+14 to UTC-12 without widening timed en
  assert.equal(value.posts[2].date_source,'feed');
  assert.equal(value.total_candidates,5);
 });
+
+test('unused article bodies cannot exhaust the parser stack or hide later metadata', () => {
+  const body = '<section>'.repeat(3000) + 'untrusted article body' + '</section>'.repeat(3000);
+  for (const field of ['content:encoded', 'content']) {
+    const xml = rss.replace('<description>Examine actual behavior.</description>',
+      `<${field}>${body}</${field}><description>Examine actual behavior.</description>`);
+    assert.deepEqual(parseFeed(xml, 'simon'), parseFeed(rss, 'simon'));
+    assert.throws(() => parseFeed(xml.replace('</section>', '</wrong>'), 'simon'), /Invalid/);
+  }
+});
