@@ -1,5 +1,19 @@
 # Development log
 
+## 2026-11-19
+
+- Acceptance: both category scans must reach a null continuation using batches of two; source failures remain explicit and separate from snapshot failures. Preserve RSS/Atom metadata, XML validation, byte limits and security bindings.
+- Repaired avoidable full-article XML tree construction with parser stop nodes for unused content fields. A valid deeply nested body previously exhausted the parser stack; the unchanged regression passes after the fix and malformed XML remains rejected.
+- Local validation: 61 tests passed, zero skipped; dry-run build passed; real local Worker MCP scan completed both categories. Same fetched AWS/Google/Temporal inputs returned identical metadata. Twenty-iteration AWS parsing averaged 13.01 -> 4.40 ms; Google/Temporal showed no improvement. This is local parser timing, not token, billing or production-reliability evidence.
+- Google Cloud independently returned HTTP 500 during a later comparison, retained as an upstream failure. Existing low-severity fast-xml-parser advisory remains; dependencies unchanged. No standalone secret/static scanner is configured locally; no new credentials or dependency changes were introduced.
+- Deployed Worker version `5e78e875-e275-4e42-8d6a-7f1baac1e08f` at 100%, preserving hostname and rate-limit bindings. Official MCP client completed all 35 sources in two-source batches with zero errors, and read the 2026-11-18T05:55:09.764Z snapshot with all eight sources healthy. The current Codex connector also recovered and returned a successful category batch and snapshot. This single successful scan is not a sustained reliability guarantee. Collector run 44247534107 succeeded; no collector change was required. Detailed local evidence: artifacts/ (not published).
+
+- Follow-up dependency repair: pinned fast-xml-parser 5.12.1 (GHSA-474x-hrwr-fgx4), with required fast-xml-builder 1.3.2 and is-unsafe 2.0.3. Full npm audit now reports zero vulnerabilities; supersedes the unresolved-advisory note above. One 61-test run passed with zero skips, build passed, and Worker 574c790c-fdae-4854-9b59-7dd4061b703e was deployed at 100%. One complete production scan checked all 35 sources without errors and read all eight snapshot sources healthy. No new Markdown or repeated evaluation runs. Receipt: artifacts/dependency-verification.json (local, available).
+
+- Security follow-up: Semgrep 1.186.0 OSS ran 84 applicable rules on 73 staged files (29 JavaScript), with zero findings/errors. Gitleaks 8.30.1 scanned current deliverables and 19 Git commits with zero findings; output fully redacted. Original source/configuration hashes remained unchanged. No code fix, test rerun or redeployment was needed. This supersedes the earlier unexecuted static/secret scan status. Receipt: artifacts/security-verification.json (local, available); explicit exclusions are retained there.
+
+- Publication check: downloaded active Worker 574c790c-fdae-4854-9b59-7dd4061b703e from Cloudflare. All nine application source-map contents exactly match the working source; the full bundle matches the previously verified build after normalizing only source-path comments. Hostname, compatibility flags/date and 60/600 rate limits match. Existing tests and scan evidence were reused; no rebuild, test rerun or redeploy. Local evidence: artifacts/publish-source-match.json.
+
 ## 2026-11-04
 
 - Deployed source commit `a49cc18` to production Worker version `c121a525-9976-4383-a9bb-ce7fdd1d5cc5` at 100%. Cloudflare version readback preserved the production hostname, compatibility settings, and 60/600 rate-limit bindings. An official MCP client confirmed Anthropic official-directory results and compatibility with the prior Uber snapshot.

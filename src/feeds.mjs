@@ -6,7 +6,12 @@ export { SOURCES } from './sources.mjs';
 
 const MAX_FEED_BYTES = 1_000_000;
 const MAX_ITEMS = 100;
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", processEntities: true, trimValues: true });
+const parser = new XMLParser({
+  ignoreAttributes: false, attributeNamePrefix: "@_", processEntities: true, trimValues: true,
+  // Full article bodies are never returned. Avoid building their nested trees;
+  // the separate validator still checks the complete XML, including these nodes.
+  stopNodes: ['*.content', '*.content:encoded']
+});
 
 function simpleText(value) {
   if (value && typeof value === "object" && typeof value["#text"] === "string") value = value["#text"];
